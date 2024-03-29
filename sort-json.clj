@@ -1,23 +1,24 @@
-#!/usr/local/bin/bb
+#!/usr/bin/env bb
 ;; sort-json.clj
 ;; Sort a json file (list of maps) by a key.
 ;; Default sort key if not specified is "id".
-;; Usage
-;; ./sort-json.clj MY-FILE.json
-;; ./sort-json.clj MY-FILE.json mysortkey
 
-(require '[cheshire.core :as json]
+(require '[babashka.cli :as cli]
+         '[babashka.fs :as fs]
+         '[cheshire.core :as json]
          '[clojure.string :as string])
 
+;;; core functions
+
 (defn prep-json
-  "Load json and set keywords"
+  "Load json and set keywords."
   [file]
   (-> file
       (slurp)
       (json/parse-string true)))
 
 (defn sort-json
-  "Sort a json file by key."
+  "Sort a json `file` by `sort-key`."
   [file sort-key]
   (let [json-file (prep-json file)]
     (sort-by (keyword sort-key) json-file)))
@@ -29,23 +30,65 @@
         parts [part1 "sorted"]]
     (str (string/join "_" parts) ".json")))
 
+(defn process-json
+  "Sort and write the new json file."
+  [{:keys [file key]}]
+  (let [sorted-json (sort-json file key)
+        outfile (output-name file)]
+    (->> (json/generate-string sorted-json {:pretty true})
+         (spit outfile))
+    (println (format "Wrote %s" outfile))))
+
+;;; cli config
+
 (defn show-help
-  "Display a help message."
-  []
+  [opts]
+  (println "sort-json - Sort a JSON file that has a list of maps by an optional key.")
   (println "Usage")
-  (println "./sort-json.clj MY-FILE.json")
-  (println "./sort-json.clj MY-FILE.json mysortkey"))
+  (println (cli/format-opts opts)))
+
+(defn file-exists?
+  [path]
+  (fs/exists? path))
+
+(def cli-opts
+  {:spec
+   {:file {:desc "JSON file to sort."
+           :alias :f
+           :validate file-exists?
+           :require true}
+    :key {:desc "JSON key to sort by."
+          :alias :k
+          :default-desc "id"
+          :default :id}
+    :help {:desc "Show help."
+           :alias :h
+           :coerce :boolean}}
+   :error-fn
+   (fn [{:keys [spec type cause msg option] :as data}]
+     (if (= :org.babashka/cli type)
+       (case cause
+         :require
+           (do (println
+                (format "Missing required argument: %s\n" option))
+               (show-help cli-opts))
+         :validate
+           (println
+            (format "%s does not exist!\n" msg))
+         :default
+           (println msg))
+        (throw (ex-info msg data)))
+       (System/exit 1))})
+
+;;; main
 
 (defn -main
-  ([file]
-    (-main file :id))
-  ([file sort-key]
-    (let [sorted-json (sort-json file sort-key)
-          output (output-name file)]
-      (spit output (json/generate-string sorted-json {:pretty true})))))
+  "sort-json entry point."
+  [args]
+  (let [opts (cli/parse-opts args cli-opts)]
+    (if (or (:help opts) (:h opts))
+      (println (show-help cli-opts))
+      (do (println "Processing JSON with options:" opts)
+          (process-json opts)))))
 
-(condp #(= %1 (count %2)) *command-line-args*
-  0 (show-help)
-  1 (-main (first *command-line-args*))
-  2 (-main (first *command-line-args*) (second *command-line-args*))
-  (show-help))
+(-main *command-line-args*)

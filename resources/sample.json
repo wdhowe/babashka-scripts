@@ -1,0 +1,36 @@
+[
+    {
+        "Id": "3f4fffc2-f82f-11e6-8e85-22000b084956",
+        "EventCode": 30,
+        "EventName": "Sales Activity",
+        "Data": [
+            {
+                "Key": "Currency",
+                "Value": "$"
+            },
+            {
+                "Key": "OrderValue",
+                "Value": "0"
+            },
+            {
+                "Key": "SalesData",
+                "Value": "{keyvalueinfo}"
+            }             
+        ]
+    },
+    {
+        "Id": "1f4fffc2-f82f-11e6-8e85-22000b084956",
+        "EventCode": 30,
+        "EventName": "Call",
+        "Data": [
+            {
+                "Key": "Duration",
+                "Value": "22"
+            },
+            {
+                "Key": "Caller",
+                "Value": "Abhi"
+            }             
+        ]
+    }
+  ]
